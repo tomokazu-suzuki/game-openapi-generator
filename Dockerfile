@@ -27,8 +27,14 @@ COPY ./modules/openapi-generator-online ${GEN_DIR}/modules/openapi-generator-onl
 COPY ./modules/openapi-generator-cli ${GEN_DIR}/modules/openapi-generator-cli
 COPY ./modules/openapi-generator-core ${GEN_DIR}/modules/openapi-generator-core
 COPY ./modules/openapi-generator ${GEN_DIR}/modules/openapi-generator
+COPY ./generators/my-code-gen ${GEN_DIR}/generators/my-code-gen
+
+# my-code-genをコンパイルする
+WORKDIR ${GEN_DIR}/generators/my-code-gen
+RUN mvn package
 
 # Pre-compile openapi-generator-cli
+WORKDIR ${GEN_DIR}
 RUN mvn -B -am -pl "modules/openapi-generator-cli" package
 
 # This exists at the end of the file to benefit from cached layers when modifying docker-entrypoint.sh.
