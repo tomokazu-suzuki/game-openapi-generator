@@ -17,6 +17,7 @@ COPY ./modules/openapi-generator-online/pom.xml ${GEN_DIR}/modules/openapi-gener
 COPY ./modules/openapi-generator-cli/pom.xml ${GEN_DIR}/modules/openapi-generator-cli/
 COPY ./modules/openapi-generator-core/pom.xml ${GEN_DIR}/modules/openapi-generator-core/
 COPY ./modules/openapi-generator/pom.xml ${GEN_DIR}/modules/openapi-generator/
+COPY ./generators/game-api-server/pom.xml ${GEN_DIR}/generators/game-api-server/
 COPY ./pom.xml ${GEN_DIR}
 RUN mvn dependency:go-offline
 
@@ -27,11 +28,21 @@ COPY ./modules/openapi-generator-online ${GEN_DIR}/modules/openapi-generator-onl
 COPY ./modules/openapi-generator-cli ${GEN_DIR}/modules/openapi-generator-cli
 COPY ./modules/openapi-generator-core ${GEN_DIR}/modules/openapi-generator-core
 COPY ./modules/openapi-generator ${GEN_DIR}/modules/openapi-generator
+COPY ./generators/game-api-server ${GEN_DIR}/generators/game-api-server
 
 # Pre-compile openapi-generator-cli
 RUN mvn -B -am -pl "modules/openapi-generator-cli" package
 
-# This exists at the end of the file to benefit from cached layers when modifying docker-entrypoint.sh.
+# Pre-compile openapi-generator
+RUN mvn -B -am -pl "modules/openapi-generator" package
+
+WORKDIR ${GEN_DIR}/generators/game-api-server
+RUN mvn install:install-file -Dfile=${GEN_DIR}/modules/openapi-generator/target/openapi-generator-7.9.0-SNAPSHOT.jar -DgroupId=org.openapitools -DartifactId=openapi-generator -Dversion=7.9.0-SNAPSHOT -Dpackaging=jar
+RUN mvn install:install-file -Dfile=${GEN_DIR}/modules/openapi-generator/target/openapi-generator-7.9.0-SNAPSHOT-tests.jar -DgroupId=org.openapitools -DartifactId=openapi-generator-test -Dversion=7.9.0-SNAPSHOT -Dpackaging=jar
+RUN mvn package
+
+# # This exists at the end of the file to benefit from cached layers when modifying docker-entrypoint.sh.
+WORKDIR ${GEN_DIR}
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN ln -s /usr/local/bin/docker-entrypoint.sh /usr/local/bin/openapi-generator
 
