@@ -8,6 +8,8 @@ JAVA_OPTS=${JAVA_OPTS:-"-DloggerPath=conf/log4j.properties"}
 
 cli="${GEN_DIR}/modules/openapi-generator-cli"
 codegen="${cli}/target/openapi-generator-cli.jar"
+game_api_server_dir="${GEN_DIR}/generators/game-api-server"
+game_api_server="${game_api_server_dir}/target/game-api-server-openapi-generator-1.0.0.jar"
 
 # We code in a list of commands here as source processing is potentially buggy (requires undocumented conventional use of annotations).
 # A list of known commands helps us determine if we should compile CLI. There's an edge-case where a new command not added to this
@@ -22,19 +24,26 @@ if [ $# == 0 ]; then
     exit
 fi
 
+if [[ ! -d "${game_api_server_dir}" ]]; then
+    exec mkdir -p ${game_api_server_dir}
+fi
+
 # if CLI jar exists, check $1 against completions available in the CLI
-if [[ -f "${codegen}" && -n "$(java ${JAVA_OPTS} -jar "${codegen}" completion | grep "^$1\$" )" ]]; then
+if [[ -f "${codegen}" && -f "${game_api_server}" && -n "$(java ${JAVA_OPTS} -cp ${game_api_server}:${codegen} org.openapitools.codegen.OpenAPIGenerator completion | grep "^$1\$" )" ]]; then
     command=$1
     shift
-    exec java ${JAVA_OPTS} -jar "${codegen}" "${command}" "$@"
+    exec java ${JAVA_OPTS} -cp ${game_api_server}:${codegen} org.openapitools.codegen.OpenAPIGenerator "${command}" "$@"
 elif [[ -n "$(echo $commands | tr ',' '\n' | grep "^$1\$" )" ]]; then
     # If CLI jar does not exist, and $1 is a known CLI command, build the CLI jar and run that command.
     if [[ ! -f "${codegen}" ]]; then
         (cd "${GEN_DIR}" && exec mvn -am -pl "modules/openapi-generator-cli" -Duser.home=$(dirname $MAVEN_CONFIG) package)
     fi
+    if [[ ! -f "${game_api_server}" ]]; then
+        (cd "${game_api_server_dir}" && exec mvn -Duser.home=$(dirname $MAVEN_CONFIG) package)
+    fi
     command=$1
     shift
-    exec java ${JAVA_OPTS} -jar "${codegen}" "${command}" "$@"
+    exec java ${JAVA_OPTS} -cp ${game_api_server}:${codegen} org.openapitools.codegen.OpenAPIGenerator "${command}" "$@"
 else
     # Pass args as linux commands. This allows us to do something like: docker run -it (-e…, -v…) image ls -la
     exec "$@"
